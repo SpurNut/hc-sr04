@@ -14,19 +14,19 @@
 
 #![deny(missing_docs)]
 #![deny(warnings)]
-#![feature(never_type)]
+//#![feature(never_type)]
 #![no_std]
 
 extern crate embedded_hal as hal;
 extern crate nb;
-extern crate stm32f30x_hal;
+extern crate stm32f3xx_hal;
 
 /// Publicly re-export `nb::Error` for easier usage down-stream
 pub use nb::Error;
-use hal::digital::OutputPin;
+use hal::digital::v2::OutputPin;
 use hal::blocking::delay::DelayUs;
-use stm32f30x_hal::time::MonoTimer;
-use stm32f30x_hal::time::Instant;
+use stm32f3xx_hal::time::MonoTimer;
+use stm32f3xx_hal::time::Instant;
 
 /// Wrapper for return value of sensor
 #[derive(Debug, Copy, Clone)]
@@ -93,8 +93,12 @@ where
         // high then all internal methods would have to account for that
         // possibility, by defensively setting it low all internal states
         // can assume it is low.
+
         let mut trigger = trigger;
-        trigger.set_low();
+        let _val = match trigger.set_low() {
+            Ok(val) => val,
+            Err(_e) =>  (),
+        };
         HcSr04 {
             pin: trigger,
             delay: delay,
@@ -114,12 +118,12 @@ where
     /// This method will not return another error except [`WouldBlock`][1].
     ///
     /// [1]: https://docs.rs/nb/0.1.1/nb/enum.Error.html
-    pub fn distance(&mut self) -> nb::Result<Distance, !> {
+    pub fn distance(&mut self) -> nb::Result<Distance, ()> {
         match self.mode {
             // Start a new sensor measurement
             Mode::Idle => {
                 self.trigger();
-                Err(Error::WouldBlock)
+                Err(Error::WouldBlock) // more or less a hack
             }
             // We have triggered the sensor and are awaiting start of
             // return pulse
@@ -155,7 +159,11 @@ where
                 // Calculation is `distance = seconds * 343.21 m/s * 0.5`
                 // By doing some pre-calculations we can simply perform
                 // the following to get millimeters:
-                let distance_mm = (ticks * 171_605) / hz;
+
+                // overflow protection ??
+
+                // let distance_mm = (ticks * 171_605) / hz;
+                let distance_mm = ((ticks as f32 * 171_605 as f32) / hz as f32) as u32;
                 // Update internal mode
                 Mode::Measurement(Distance(distance_mm))
             }
@@ -164,11 +172,35 @@ where
         Ok(())
     }
 
+    /// place holder
+    pub fn delay(&mut self) {
+        self.delay.delay_us(1000000);
+        self.delay.delay_us(1000000);
+    }
+
     /// Trigger sensor starting a measurement
     fn trigger(&mut self) {
-        self.pin.set_high();
+
+        let _val = match self.pin.set_high() {
+            Ok(val) => val,
+            Err(_e) =>  (),
+        };
+
         self.delay.delay_us(10);
-        self.pin.set_low();
+
+        let _val = match self.pin.set_low() {
+            Ok(val) => val,
+            Err(_e) =>  (),
+        };
         self.mode = Mode::Triggered;
+    }
+
+    /// to reset error 0 state
+    pub fn reset(&mut self) {
+        self.mode = Mode::Idle;
+        let _val = match self.pin.set_low() {
+            Ok(val) => val,
+            Err(_e) =>  (),
+        };
     }
 }
