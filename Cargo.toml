@@ -19,10 +19,8 @@ cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
 cortex-m-rtfm = "0.5.1"
 stm32f3-discovery = "0.4.0"
+panic-halt = "0.2.0"
 
-[dev-dependencies.f3]
-features = ["rt"]
-version = "0.5.3"
 
 # For the stm32f303vc mcu
 [dependencies.stm32f3xx-hal]
