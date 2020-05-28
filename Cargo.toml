@@ -32,6 +32,6 @@ codegen-units = 1
 incremental = false
 
 [profile.release]
-opt-level = 1
+opt-level = 0
 debug = true
 lto = true
